@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -83,10 +84,11 @@ func openURL(url string) error {
 func scroll(s tcell.Screen, item int, feed *rss.Feed) {
 	//w, h := s.Size()
 	for y, f := range feed.Items {
+		result := fmt.Sprintf("%4d%2s%s", y, "N", f.Title)
 		if y == item {
-			print(s, 0, y, tcell.StyleDefault.Reverse(true), f.Title)
+			print(s, 0, y, tcell.StyleDefault.Reverse(true), result)
 		} else {
-			print(s, 0, y, tcell.StyleDefault, f.Title)
+			print(s, 0, y, tcell.StyleDefault, result)
 		}
 	}
 }
