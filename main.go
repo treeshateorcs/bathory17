@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 
@@ -11,7 +12,13 @@ import (
 )
 
 func main() {
-	feed, err := rss.Fetch("http://carlgene.com/blog/feed/atom/")
+	var url string
+	if len(os.Args) == 1 {
+		url = "http://carlgene.com/blog/feed/atom/"
+	} else {
+		url = os.Args[1]
+	}
+	feed, err := rss.Fetch(url)
 	fatal(err)
 	s, err := tcell.NewScreen()
 	fatal(err)
@@ -74,6 +81,7 @@ func openURL(url string) error {
 }
 
 func scroll(s tcell.Screen, item int, feed *rss.Feed) {
+	//w, h := s.Size()
 	for y, f := range feed.Items {
 		if y == item {
 			print(s, 0, y, tcell.StyleDefault.Reverse(true), f.Title)
