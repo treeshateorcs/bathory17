@@ -22,7 +22,7 @@ type Item struct {
 }
 
 func main() {
-	db, err := bolt.Open("lel.db", 0666, nil)
+	db, err := bolt.Open("/home/tho/.local/share/lydia/db", 0666, nil)
 	fatal(err)
 	defer db.Close()
 	var url string
@@ -40,6 +40,7 @@ func main() {
 	fatal(err)
 	defer s.Fini()
 	currentItem := 0
+	coldStart := true
 mainloop:
 	for {
 		ev := s.PollEvent()
@@ -60,6 +61,8 @@ mainloop:
 				switch ev.Rune() {
 				case 'o':
 					openURL(db, feed.Items[currentItem].Link)
+					currentItem++
+					scroll(db, s, &currentItem, feed, &coldStart)
 				case 'q':
 					break mainloop
 				case 'j':
@@ -71,9 +74,10 @@ mainloop:
 						currentItem--
 					}
 				}
+				coldStart = false
 			}
 		}
-		scroll(db, s, currentItem, feed)
+		scroll(db, s, &currentItem, feed, &coldStart)
 		s.Sync()
 	}
 }
@@ -138,12 +142,17 @@ func openURL(db *bolt.DB, url string) {
 	markRead(db, url)
 }
 
-func scroll(db *bolt.DB, s tcell.Screen, item int, feed *rss.Feed) {
+func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *bool) {
 	w, _ := s.Size()
 	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("rss"))
 		for y, f := range feed.Items {
 			read := bucket.Get([]byte(f.Link))[8]
+			if *coldStart {
+				if read != 48 {
+					*item++
+				}
+			}
 			var result string
 			var style tcell.Style
 			if read == 48 {
@@ -156,7 +165,7 @@ func scroll(db *bolt.DB, s tcell.Screen, item int, feed *rss.Feed) {
 			for utf8.RuneCountInString(result) < w {
 				result += " "
 			}
-			if y == item {
+			if y == *item {
 				print(s, 0, y, style.Reverse(true), result)
 			} else {
 				print(s, 0, y, style, result)
