@@ -10,3 +10,8 @@ the only dependency is go
 
 before first run create a directory in your config dir ($HOME/.config/ on
 linux), name it `lydia`, there touch `urls` and add a few feed urls in it
+
+## how to use
+j, k, down, up - down, up
+o - open url in browser
+q, esc - quit
