@@ -22,6 +22,7 @@ import (
 const (
 	READ_OFFSET = 8  // which byte is responsible for read status flag in a bolt key
 	ZERO        = 48 // 0 in ascii. means false, not read
+	TIMER       = 1  // reload feeds every this many minutes
 )
 
 //Item is an rss feed item
@@ -40,9 +41,17 @@ func main() {
 	db, err := bolt.Open(filepath.FromSlash(dir+filepath.FromSlash("/lydia/db")), 0600, nil)
 	fatal(err)
 	defer db.Close()
-	items := populateDB(db, &maxTitle)
+	items := make([]Item, 0, 256)
 	s, err := tcell.NewScreen()
 	fatal(err)
+	go func() {
+		for {
+			items = populateDB(db, &maxTitle)
+			scroll(db, s, &currentItem, items, &coldStart, maxTitle)
+			s.Sync()
+			time.Sleep(TIMER * time.Minute)
+		}
+	}()
 	err = s.Init()
 	fatal(err)
 	defer s.Fini()
@@ -55,7 +64,8 @@ mainloop:
 			case tcell.KeyEscape:
 				break mainloop
 			case tcell.KeyDown:
-				if currentItem < len(items)-1 {
+				_, h := s.Size()
+				if currentItem < h-1 {
 					currentItem++
 				}
 			case tcell.KeyUp:
@@ -71,7 +81,8 @@ mainloop:
 				case 'q':
 					break mainloop
 				case 'j':
-					if currentItem < len(items)-1 {
+					_, h := s.Size()
+					if currentItem < h-1 {
 						currentItem++
 					}
 				case 'k':

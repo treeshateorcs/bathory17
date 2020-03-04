@@ -21,4 +21,11 @@ q, esc - quit
 
 
 
+it will take some time to fetch all feeds on launch
+
 you can comment out single feeds by prepending their urls with a pound sign ("#")
+
+change the `TIMER` variable to set how often to auto refresh feeds
+
+currently it's not possible to scroll past the bottom of the window, so the
+number of feeds is limited by it
