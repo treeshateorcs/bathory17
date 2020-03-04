@@ -89,6 +89,10 @@ mainloop:
 					if currentItem > 0 {
 						currentItem--
 					}
+				case 'r':
+					items = populateDB(db, &maxTitle)
+					scroll(db, s, &currentItem, items, &coldStart, maxTitle)
+					s.Sync()
 				}
 				coldStart = false
 			}
