@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,30 +23,24 @@ const (
 
 //Item is an rss feed item
 type Item struct {
-	Read int       `json:"read"`
-	I    *rss.Item `json:"item"`
+	Read  int       `json:"read"`
+	Title string    `json:"title"`
+	I     *rss.Item `json:"item"`
 }
 
 func main() {
+	currentItem := 0
+	coldStart := true
+	maxTitle := 0
 	db, err := bolt.Open("/home/tho/.local/share/lydia/db", 0666, nil)
 	fatal(err)
 	defer db.Close()
-	var url string
-	if len(os.Args) == 1 {
-		url = "http://carlgene.com/blog/feed/atom/"
-	} else {
-		url = os.Args[1]
-	}
-	feed, err := rss.Fetch(url)
-	fatal(err)
-	populateDB(db, feed)
+	items := populateDB(db, &maxTitle)
 	s, err := tcell.NewScreen()
 	fatal(err)
 	err = s.Init()
 	fatal(err)
 	defer s.Fini()
-	currentItem := 0
-	coldStart := true
 mainloop:
 	for {
 		ev := s.PollEvent()
@@ -55,7 +50,7 @@ mainloop:
 			case tcell.KeyEscape:
 				break mainloop
 			case tcell.KeyDown:
-				if currentItem < len(feed.Items)-1 {
+				if currentItem < len(items)-1 {
 					currentItem++
 				}
 			case tcell.KeyUp:
@@ -65,13 +60,13 @@ mainloop:
 			case tcell.KeyRune:
 				switch ev.Rune() {
 				case 'o':
-					openURL(db, feed.Items[currentItem].Link)
+					openURL(db, items[currentItem].I.Link)
 					currentItem++
-					scroll(db, s, &currentItem, feed, &coldStart)
+					scroll(db, s, &currentItem, items, &coldStart, maxTitle)
 				case 'q':
 					break mainloop
 				case 'j':
-					if currentItem < len(feed.Items)-1 {
+					if currentItem < len(items)-1 {
 						currentItem++
 					}
 				case 'k':
@@ -82,9 +77,20 @@ mainloop:
 				coldStart = false
 			}
 		}
-		scroll(db, s, &currentItem, feed, &coldStart)
+		scroll(db, s, &currentItem, items, &coldStart, maxTitle)
 		s.Sync()
 	}
+}
+
+func leng(s string) int {
+	l := 0
+	for _, r := range s {
+		l += runewidth.RuneWidth(r)
+	}
+	if l > 20 {
+		l = 20
+	}
+	return l
 }
 
 func markRead(db *bolt.DB, url string) {
@@ -107,26 +113,51 @@ func markRead(db *bolt.DB, url string) {
 	fatal(err)
 }
 
-func populateDB(db *bolt.DB, feed *rss.Feed) {
-	err := db.Update(func(tx *bolt.Tx) error {
+func populateDB(db *bolt.DB, maxTitle *int) []Item {
+	file, err := os.Open("/home/tho/.local/share/lydia/urls")
+	fatal(err)
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	var items []Item = make([]Item, 0, 256)
+	for scanner.Scan() {
+		f, err := rss.Fetch(scanner.Text())
+		fatal(err)
+		if leng(f.Title) > *maxTitle {
+			*maxTitle = leng(f.Title)
+		}
+		for _, i := range f.Items {
+			var item Item
+			item = Item{
+				Read:  0,
+				Title: f.Title,
+				I:     i,
+			}
+			items = append(items, item)
+		}
+	}
+	fatal(scanner.Err())
+	//	sort.Slice(items, func(i, j int) bool {
+	//		return items[i].I.Date.Unix() < items[j].I.Date.Unix()
+	//	})
+	err = db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("rss"))
 		if err != nil {
 			return err
 		}
-		for _, f := range feed.Items {
-			key := bucket.Get([]byte(f.Link))
+		for _, i := range items {
+			key := bucket.Get([]byte(i.I.Link))
 			if key == nil {
-				i := Item{I: f, Read: 0}
 				buf, err := json.Marshal(i)
 				if err != nil {
 					return err
 				}
-				bucket.Put([]byte(f.Link), buf)
+				bucket.Put([]byte(i.I.Link), buf)
 			}
 		}
 		return nil
 	})
 	fatal(err)
+	return items
 }
 
 func openURL(db *bolt.DB, url string) {
@@ -147,12 +178,12 @@ func openURL(db *bolt.DB, url string) {
 	markRead(db, url)
 }
 
-func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *bool) {
+func scroll(db *bolt.DB, s tcell.Screen, item *int, items []Item, coldStart *bool, maxTitle int) {
 	w, _ := s.Size()
 	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("rss"))
-		for y, f := range feed.Items {
-			read := bucket.Get([]byte(f.Link))[READ_OFFSET]
+		for y, i := range items {
+			read := bucket.Get([]byte(i.I.Link))[READ_OFFSET]
 			if *coldStart {
 				if read != ZERO {
 					*item++
@@ -163,10 +194,10 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *b
 			var result string
 			var style tcell.Style
 			if read == ZERO {
-				result = fmt.Sprintf("%4d%2s %s", y, "N", f.Title)
+				result = fmt.Sprintf("%3d│%2s│%[3]*s│%s", y, "N", maxTitle, i.Title, i.I.Title)
 				style = tcell.StyleDefault.Bold(true)
 			} else {
-				result = fmt.Sprintf("%4d%2s %s", y, " ", f.Title)
+				result = fmt.Sprintf("%3d│%2s│%[3]*s│%s", y, " ", maxTitle, i.Title, i.I.Title)
 				style = tcell.StyleDefault
 			}
 			for utf8.RuneCountInString(result) < w {
@@ -177,12 +208,11 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *b
 			} else {
 				print(s, 0, y, style, result)
 			}
-			i := Item{I: f, Read: 0}
 			buf, err := json.Marshal(i)
 			if err != nil {
 				return err
 			}
-			bucket.Put([]byte(f.Link), buf)
+			bucket.Put([]byte(i.I.Link), buf)
 		}
 		return nil
 	})
