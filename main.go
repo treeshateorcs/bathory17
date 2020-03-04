@@ -22,7 +22,7 @@ import (
 const (
 	READ_OFFSET = 8  // which byte is responsible for read status flag in a bolt key
 	ZERO        = 48 // 0 in ascii. means false, not read
-	TIMER       = 1  // reload feeds every this many minutes
+	TIMER       = 30 // reload feeds every this many minutes
 )
 
 //Item is an rss feed item
