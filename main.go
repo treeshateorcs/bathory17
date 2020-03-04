@@ -7,7 +7,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"sort"
+	"time"
 	"unicode/utf8"
 
 	"github.com/SlyMarbo/rss"
@@ -32,7 +35,9 @@ func main() {
 	currentItem := 0
 	coldStart := true
 	maxTitle := 0
-	db, err := bolt.Open("/home/tho/.local/share/lydia/db", 0666, nil)
+	dir, err := os.UserConfigDir()
+	fatal(err)
+	db, err := bolt.Open(filepath.FromSlash(dir+filepath.FromSlash("/lydia/db")), 0600, nil)
 	fatal(err)
 	defer db.Close()
 	items := populateDB(db, &maxTitle)
@@ -82,6 +87,14 @@ mainloop:
 	}
 }
 
+func date(d time.Time) string {
+	if time.Now().Unix()-d.Unix() > 24*60*60 {
+		return fmt.Sprintf("%s %02d", d.Month().String()[:3], d.Day())
+	}
+	return fmt.Sprintf("%02d:%02d", d.Hour(), d.Minute())
+
+}
+
 func leng(s string) int {
 	l := 0
 	for _, r := range s {
@@ -114,7 +127,9 @@ func markRead(db *bolt.DB, url string) {
 }
 
 func populateDB(db *bolt.DB, maxTitle *int) []Item {
-	file, err := os.Open("/home/tho/.local/share/lydia/urls")
+	dir, err := os.UserConfigDir()
+	fatal(err)
+	file, err := os.Open(filepath.FromSlash(dir + filepath.FromSlash("/lydia/urls")))
 	fatal(err)
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -136,9 +151,9 @@ func populateDB(db *bolt.DB, maxTitle *int) []Item {
 		}
 	}
 	fatal(scanner.Err())
-	//	sort.Slice(items, func(i, j int) bool {
-	//		return items[i].I.Date.Unix() < items[j].I.Date.Unix()
-	//	})
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].I.Date.Unix() > items[j].I.Date.Unix()
+	})
 	err = db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("rss"))
 		if err != nil {
@@ -194,10 +209,10 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, items []Item, coldStart *boo
 			var result string
 			var style tcell.Style
 			if read == ZERO {
-				result = fmt.Sprintf("%3d│%2s│%[3]*s│%s", y, "N", maxTitle, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%2s│%[3]*s│%s", date(i.I.Date), "N", maxTitle, i.Title, i.I.Title)
 				style = tcell.StyleDefault.Bold(true)
 			} else {
-				result = fmt.Sprintf("%3d│%2s│%[3]*s│%s", y, " ", maxTitle, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%2s│%[3]*s│%s", date(i.I.Date), " ", maxTitle, i.Title, i.I.Title)
 				style = tcell.StyleDefault
 			}
 			for utf8.RuneCountInString(result) < w {
