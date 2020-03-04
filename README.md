@@ -10,7 +10,7 @@ do i find that out?), i've tested on arch linux, go 1.14)
     $ go get git.sr.ht/~tho/lydia
 
 before first run create a directory in your config dir ($HOME/.config/ on
-linux), name it `lydia`, there touch `urls` and add a few feed urls in it,
+linux), name it `lydia`, add a few feed urls in the file called `urls`,
 one per line
 
 ## how to use
