@@ -15,6 +15,11 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+const (
+	READ_OFFSET = 8  // which byte is responsible for read status flag in a bolt key
+	ZERO        = 48 // 0 in ascii. means false, not read
+)
+
 //Item is an rss feed item
 type Item struct {
 	Read int       `json:"read"`
@@ -27,7 +32,7 @@ func main() {
 	defer db.Close()
 	var url string
 	if len(os.Args) == 1 {
-		url = "https://content.novayagazeta.ru/rss/all.xml"
+		url = "http://carlgene.com/blog/feed/atom/"
 	} else {
 		url = os.Args[1]
 	}
@@ -147,9 +152,9 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *b
 	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("rss"))
 		for y, f := range feed.Items {
-			read := bucket.Get([]byte(f.Link))[8]
+			read := bucket.Get([]byte(f.Link))[READ_OFFSET]
 			if *coldStart {
-				if read != 48 {
+				if read != ZERO {
 					*item++
 				} else {
 					*coldStart = false
@@ -157,7 +162,7 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *b
 			}
 			var result string
 			var style tcell.Style
-			if read == 48 {
+			if read == ZERO {
 				result = fmt.Sprintf("%4d%2s %s", y, "N", f.Title)
 				style = tcell.StyleDefault.Bold(true)
 			} else {
