@@ -135,6 +135,10 @@ func populateDB(db *bolt.DB, maxTitle *int) []Item {
 	scanner := bufio.NewScanner(file)
 	var items []Item = make([]Item, 0, 256)
 	for scanner.Scan() {
+		text := scanner.Text()
+		if text[0] == '#' {
+			continue
+		}
 		f, err := rss.Fetch(scanner.Text())
 		fatal(err)
 		if leng(f.Title) > *maxTitle {
