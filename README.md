@@ -9,7 +9,8 @@ the only dependency is go
     $ go get git.sr.ht/~tho/lydia
 
 before first run create a directory in your config dir ($HOME/.config/ on
-linux), name it `lydia`, there touch `urls` and add a few feed urls in it
+linux), name it `lydia`, there touch `urls` and add a few feed urls in it,
+one per line
 
 ## how to use
 j, k, down, up - down, up
