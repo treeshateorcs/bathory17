@@ -13,7 +13,11 @@ linux), name it `lydia`, there touch `urls` and add a few feed urls in it
 
 ## how to use
 j, k, down, up - down, up
+
 o - open url in browser
+
 q, esc - quit
+
+
 
 you can comment out single feeds by prepending their urls with a pound sign ("#")
