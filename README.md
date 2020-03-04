@@ -17,6 +17,8 @@ j, k, down, up - down, up
 
 o - open url in browser
 
+r - refresh feeds
+
 q, esc - quit
 
 
