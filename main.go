@@ -209,10 +209,10 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, items []Item, coldStart *boo
 			var result string
 			var style tcell.Style
 			if read == ZERO {
-				result = fmt.Sprintf("%6s│%2s│%[3]*s│%s", date(i.I.Date), "N", maxTitle, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), maxTitle, i.Title, i.I.Title)
 				style = tcell.StyleDefault.Bold(true)
 			} else {
-				result = fmt.Sprintf("%6s│%2s│%[3]*s│%s", date(i.I.Date), " ", maxTitle, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), maxTitle, i.Title, i.I.Title)
 				style = tcell.StyleDefault
 			}
 			for utf8.RuneCountInString(result) < w {
