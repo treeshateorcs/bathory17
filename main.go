@@ -27,7 +27,7 @@ func main() {
 	defer db.Close()
 	var url string
 	if len(os.Args) == 1 {
-		url = "http://carlgene.com/blog/feed/atom/"
+		url = "https://content.novayagazeta.ru/rss/all.xml"
 	} else {
 		url = os.Args[1]
 	}
@@ -151,6 +151,8 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, feed *rss.Feed, coldStart *b
 			if *coldStart {
 				if read != 48 {
 					*item++
+				} else {
+					*coldStart = false
 				}
 			}
 			var result string
