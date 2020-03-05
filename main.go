@@ -85,6 +85,8 @@ mainloop:
 				}
 			case tcell.KeyRune:
 				switch ev.Rune() {
+				case 'A':
+					markReadAll(db)
 				case 'd':
 					if currentItem < h {
 						markRead(db, currentItem)
@@ -119,11 +121,36 @@ mainloop:
 	}
 }
 
+func markReadAll(db *bolt.DB) {
+	err := db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("unread"))
+		if b == nil {
+			fatal(128, errors.New("no bucket"))
+		}
+		c := b.Cursor()
+		for k, v := c.Last(); k != nil; k, v = c.Prev() {
+			var item Item
+			err := json.Unmarshal(v, &item)
+			if err != nil {
+				return err
+			}
+			item.Read = 1
+			buf, err := json.Marshal(item)
+			if err != nil {
+				return err
+			}
+			b.Put(k, buf)
+		}
+		return nil
+	})
+	fatal(153, err)
+}
+
 func markRead(db *bolt.DB, index int) {
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("unread"))
 		if b == nil {
-			fatal(222, errors.New("no bucket"))
+			fatal(154, errors.New("no bucket"))
 		}
 		c := b.Cursor()
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
@@ -148,7 +175,7 @@ func markRead(db *bolt.DB, index int) {
 		}
 		return nil
 	})
-	fatal(145, err)
+	fatal(179, err)
 }
 
 func leng(s string) int {
