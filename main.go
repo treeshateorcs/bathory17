@@ -41,33 +41,34 @@ func main() {
 	defer db.Close()
 	s, err := tcell.NewScreen()
 	fatal(45, err)
-	firstStart := false
+	firstRun := false
 	err = db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("unread"))
 		if b == nil {
-			firstStart = true
+			firstRun = true
 		}
 		return err
 	})
-	if firstStart {
+	err = s.Init()
+	fatal(68, err)
+	defer s.Fini()
+	if firstRun {
 		populateDB(s, db)
 		scroll(db, s, &currentItem)
-		go s.Sync()
+		s.Show()
 	} else {
 		go func() {
 			for {
 				populateDB(s, db)
 				scroll(db, s, &currentItem)
-				go s.Sync()
+				s.Show()
 				time.Sleep(TIMER * time.Minute)
 			}
 		}()
 	}
-	err = s.Init()
-	fatal(68, err)
-	defer s.Fini()
 mainloop:
 	for {
+		_, h := s.Size()
 		ev := s.PollEvent()
 		switch ev := ev.(type) {
 		case *tcell.EventKey:
@@ -75,7 +76,6 @@ mainloop:
 			case tcell.KeyEscape:
 				break mainloop
 			case tcell.KeyDown:
-				_, h := s.Size()
 				if currentItem < h-1 {
 					currentItem++
 				}
@@ -86,13 +86,14 @@ mainloop:
 			case tcell.KeyRune:
 				switch ev.Rune() {
 				case 'o':
-					openURL(db, currentItem)
-					currentItem++
-					scroll(db, s, &currentItem)
+					if currentItem < h-1 {
+						openURL(db, currentItem)
+						currentItem++
+						scroll(db, s, &currentItem)
+					}
 				case 'q':
 					break mainloop
 				case 'j':
-					_, h := s.Size()
 					if currentItem < h-1 {
 						currentItem++
 					}
@@ -103,12 +104,12 @@ mainloop:
 				case 'r':
 					go populateDB(s, db)
 					scroll(db, s, &currentItem)
-					go s.Sync()
+					s.Show()
 				}
 			}
 		}
 		scroll(db, s, &currentItem)
-		go s.Sync()
+		s.Show()
 	}
 }
 
@@ -147,7 +148,7 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 		w, h := s.Size()
 		style := tcell.StyleDefault.Bold(true).Reverse(true)
 		print(s, w-12, h-1, style, fmt.Sprintf("loading...%02d", i))
-		go s.Sync()
+		s.Show()
 		f, err := rss.Fetch(scanner.Text())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s could not be fetched", scanner.Text())
