@@ -34,6 +34,7 @@ type Item struct {
 
 func main() {
 	currentItem := 0
+	maxItems := 0
 	dir, err := os.UserConfigDir()
 	fatal(39, err)
 	db, err := bolt.Open(filepath.FromSlash(dir+filepath.FromSlash("/lydia/db")), 0600, nil)
@@ -54,13 +55,13 @@ func main() {
 	defer s.Fini()
 	if firstRun {
 		populateDB(s, db)
-		scroll(db, s, &currentItem)
+		scroll(db, s, &currentItem, &maxItems)
 		s.Show()
 	} else {
 		go func() {
 			for {
 				populateDB(s, db)
-				scroll(db, s, &currentItem)
+				scroll(db, s, &currentItem, &maxItems)
 				s.Show()
 				time.Sleep(TIMER * time.Minute)
 			}
@@ -76,7 +77,7 @@ mainloop:
 			case tcell.KeyEscape:
 				break mainloop
 			case tcell.KeyDown:
-				if currentItem < h-1 {
+				if currentItem < h-1 && currentItem < maxItems-1 {
 					currentItem++
 				}
 			case tcell.KeyUp:
@@ -95,16 +96,16 @@ mainloop:
 						}
 					}
 				case 'o':
-					if currentItem < h {
+					if currentItem < h && currentItem < maxItems {
 						openURL(db, currentItem)
-						if currentItem != h-1 {
+						if currentItem != h-1 && currentItem != maxItems-1 {
 							currentItem++
 						}
 					}
 				case 'q':
 					break mainloop
 				case 'j':
-					if currentItem < h-1 {
+					if currentItem < h-1 && currentItem < maxItems-1 {
 						currentItem++
 					}
 				case 'k':
@@ -116,7 +117,7 @@ mainloop:
 				}
 			}
 		}
-		scroll(db, s, &currentItem)
+		scroll(db, s, &currentItem, &maxItems)
 		s.Show()
 	}
 }
@@ -311,13 +312,15 @@ func openURL(db *bolt.DB, index int) {
 	fatal(221, err)
 }
 
-func scroll(db *bolt.DB, s tcell.Screen, item *int) {
+func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
+	*maxItems = 0
 	w, _ := s.Size()
 	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("unread"))
 		c := bucket.Cursor()
 		y := 0
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
+			*maxItems++
 			read := v[READ_OFFSET]
 			var i Item
 			err := json.Unmarshal(v, &i)

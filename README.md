@@ -44,3 +44,5 @@ number of feeds is limited by it
 ~~only show unread articles~~ DONE
 
 ~~scroll past the bottom of the screen~~ WONTFIX
+
+there may be issues when too few articles are on the screen, i'm working on it
