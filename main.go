@@ -218,7 +218,7 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 		s.Show()
 		f, err := rss.Fetch(scanner.Text())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s could not be fetched", scanner.Text())
+			print(s, 0, h-1, style, fmt.Sprintf("%s could not be fetched", scanner.Text()))
 			continue
 		}
 		for _, i := range f.Items {
