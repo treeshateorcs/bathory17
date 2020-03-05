@@ -28,7 +28,7 @@ q, esc - quit
 
 
 
-it will take some time to fetch all feeds on launch
+it will take some time to fetch all feeds on first launch
 
 you can comment out single feeds by prepending their urls with a pound sign ("#")
 
