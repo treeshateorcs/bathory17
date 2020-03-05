@@ -32,3 +32,7 @@ change the `TIMER` variable to set how often to auto refresh feeds
 
 currently it's not possible to scroll past the bottom of the window, so the
 number of feeds is limited by it
+
+## to do
+
+only show unread articles
