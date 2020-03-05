@@ -14,7 +14,7 @@ linux), name it `lydia`, add a few feed urls in the file called `urls`,
 one per line
 
 ## how to use
-j, k, down, up - down, up
+j, k; down, up - down, up
 
 o - open url in browser
 

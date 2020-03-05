@@ -3,13 +3,13 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"time"
 	"unicode/utf8"
 
@@ -35,25 +35,36 @@ type Item struct {
 func main() {
 	currentItem := 0
 	coldStart := true
-	maxTitle := 0
 	dir, err := os.UserConfigDir()
-	fatal(err)
+	fatal(39, err)
 	db, err := bolt.Open(filepath.FromSlash(dir+filepath.FromSlash("/lydia/db")), 0600, nil)
-	fatal(err)
+	fatal(41, err)
 	defer db.Close()
-	items := make([]Item, 0, 256)
 	s, err := tcell.NewScreen()
-	fatal(err)
+	fatal(45, err)
+	firstStart := false
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("rss"))
+		if b == nil {
+			firstStart = true
+		}
+		return err
+	})
+	if firstStart {
+		populateDB(db)
+		scroll(db, s, &currentItem, &coldStart)
+		s.Sync()
+	}
 	go func() {
 		for {
-			items = populateDB(db, &maxTitle)
-			scroll(db, s, &currentItem, items, &coldStart, maxTitle)
+			populateDB(db)
+			scroll(db, s, &currentItem, &coldStart)
 			s.Sync()
 			time.Sleep(TIMER * time.Minute)
 		}
 	}()
 	err = s.Init()
-	fatal(err)
+	fatal(68, err)
 	defer s.Fini()
 mainloop:
 	for {
@@ -75,9 +86,9 @@ mainloop:
 			case tcell.KeyRune:
 				switch ev.Rune() {
 				case 'o':
-					openURL(db, items[currentItem].I.Link)
+					openURL(db, currentItem)
 					currentItem++
-					scroll(db, s, &currentItem, items, &coldStart, maxTitle)
+					scroll(db, s, &currentItem, &coldStart)
 				case 'q':
 					break mainloop
 				case 'j':
@@ -90,16 +101,24 @@ mainloop:
 						currentItem--
 					}
 				case 'r':
-					items = populateDB(db, &maxTitle)
-					scroll(db, s, &currentItem, items, &coldStart, maxTitle)
+					populateDB(db)
+					scroll(db, s, &currentItem, &coldStart)
 					s.Sync()
 				}
 				coldStart = false
 			}
 		}
-		scroll(db, s, &currentItem, items, &coldStart, maxTitle)
+		scroll(db, s, &currentItem, &coldStart)
 		s.Sync()
 	}
+}
+
+func leng(s string) int {
+	l := 0
+	for _, c := range s {
+		l += runewidth.RuneWidth(c)
+	}
+	return l
 }
 
 func date(d time.Time) string {
@@ -110,42 +129,13 @@ func date(d time.Time) string {
 
 }
 
-func leng(s string) int {
-	l := 0
-	for _, r := range s {
-		l += runewidth.RuneWidth(r)
-	}
-	if l > 20 {
-		l = 20
-	}
-	return l
-}
-
-func markRead(db *bolt.DB, url string) {
-	err := db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("rss"))
-		buf := bucket.Get([]byte(url))
-		var i Item
-		err := json.Unmarshal(buf, &i)
-		if err != nil {
-			return err
-		}
-		i.Read = 1
-		buf, err = json.Marshal(i)
-		if err != nil {
-			return err
-		}
-		bucket.Put([]byte(url), buf)
-		return nil
-	})
-	fatal(err)
-}
-
-func populateDB(db *bolt.DB, maxTitle *int) []Item {
+func populateDB(db *bolt.DB) {
 	dir, err := os.UserConfigDir()
-	fatal(err)
+	fatal(158, err)
 	file, err := os.Open(filepath.FromSlash(dir + filepath.FromSlash("/lydia/urls")))
-	fatal(err)
+	if err != nil {
+		log.Fatalf("You need to create a new file - %s, and add a few feeds in it, one per line", filepath.FromSlash(dir+filepath.FromSlash("/lydia/urls")))
+	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	var items []Item = make([]Item, 0, 256)
@@ -155,10 +145,7 @@ func populateDB(db *bolt.DB, maxTitle *int) []Item {
 			continue
 		}
 		f, err := rss.Fetch(scanner.Text())
-		fatal(err)
-		if leng(f.Title) > *maxTitle {
-			*maxTitle = leng(f.Title)
-		}
+		fatal(172, err)
 		for _, i := range f.Items {
 			var item Item
 			item = Item{
@@ -169,32 +156,32 @@ func populateDB(db *bolt.DB, maxTitle *int) []Item {
 			items = append(items, item)
 		}
 	}
-	fatal(scanner.Err())
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].I.Date.Unix() > items[j].I.Date.Unix()
-	})
+	fatal(186, scanner.Err())
 	err = db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("rss"))
 		if err != nil {
 			return err
 		}
 		for _, i := range items {
-			key := bucket.Get([]byte(i.I.Link))
+			key := bucket.Get([]byte(fmt.Sprintf("%d", i.I.Date.Unix()) + i.I.Link))
 			if key == nil {
+				if leng(i.Title) > 20 {
+					rs := []rune(i.Title)
+					i.Title = string(rs[:20])
+				}
 				buf, err := json.Marshal(i)
 				if err != nil {
 					return err
 				}
-				bucket.Put([]byte(i.I.Link), buf)
+				bucket.Put([]byte(fmt.Sprintf("%d", i.I.Date.Unix())+i.I.Link), buf)
 			}
 		}
 		return nil
 	})
-	fatal(err)
-	return items
+	fatal(204, err)
 }
 
-func openURL(db *bolt.DB, url string) {
+func openURL(db *bolt.DB, index int) {
 	var cmd string
 	var args []string
 	switch runtime.GOOS {
@@ -206,18 +193,49 @@ func openURL(db *bolt.DB, url string) {
 	default:
 		cmd = "xdg-open"
 	}
+	var url string
+	err := db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("rss"))
+		if b == nil {
+			fatal(222, errors.New("no bucket"))
+		}
+		c := b.Cursor()
+		for k, v := c.Last(); k != nil; k, v = c.Prev() {
+			index--
+			if k == nil {
+				fatal(230, errors.New("no key for current item"))
+			}
+			if index == -1 {
+				var item Item
+				err := json.Unmarshal(v, &item)
+				if err != nil {
+					return err
+				}
+				url = item.I.Link
+				item.Read = 1
+				buf, err := json.Marshal(item)
+				if err != nil {
+					return err
+				}
+				b.Put(k, buf)
+				break
+			}
+		}
+		return nil
+	})
 	args = append(args, url)
-	err := exec.Command(cmd, args...).Start()
-	fatal(err)
-	markRead(db, url)
+	err = exec.Command(cmd, args...).Start()
+	fatal(221, err)
 }
 
-func scroll(db *bolt.DB, s tcell.Screen, item *int, items []Item, coldStart *bool, maxTitle int) {
+func scroll(db *bolt.DB, s tcell.Screen, item *int, coldStart *bool) {
 	w, _ := s.Size()
 	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("rss"))
-		for y, i := range items {
-			read := bucket.Get([]byte(i.I.Link))[READ_OFFSET]
+		c := bucket.Cursor()
+		y := 0
+		for k, v := c.Last(); k != nil; k, v = c.Prev() {
+			read := v[READ_OFFSET]
 			if *coldStart {
 				if read != ZERO {
 					*item++
@@ -225,13 +243,16 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, items []Item, coldStart *boo
 					*coldStart = false
 				}
 			}
+			var i Item
+			err := json.Unmarshal(v, &i)
+			fatal(242, err)
 			var result string
 			var style tcell.Style
 			if read == ZERO {
-				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), maxTitle, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), 20, i.Title, i.I.Title)
 				style = tcell.StyleDefault.Bold(true)
 			} else {
-				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), maxTitle, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), 20, i.Title, i.I.Title)
 				style = tcell.StyleDefault
 			}
 			for utf8.RuneCountInString(result) < w {
@@ -242,15 +263,11 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, items []Item, coldStart *boo
 			} else {
 				print(s, 0, y, style, result)
 			}
-			buf, err := json.Marshal(i)
-			if err != nil {
-				return err
-			}
-			bucket.Put([]byte(i.I.Link), buf)
+			y++
 		}
 		return nil
 	})
-	fatal(err)
+	fatal(264, err)
 }
 
 func print(s tcell.Screen, x, y int, style tcell.Style, text string) {
@@ -260,8 +277,8 @@ func print(s tcell.Screen, x, y int, style tcell.Style, text string) {
 	}
 }
 
-func fatal(e error) {
+func fatal(line int, e error) {
 	if e != nil {
-		log.Fatal(e)
+		log.Fatal(line, e)
 	}
 }
