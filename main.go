@@ -167,7 +167,7 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 			return err
 		}
 		for _, i := range items {
-			key := bucket.Get([]byte(fmt.Sprintf("%d", i.I.Date.Unix()) + i.I.Link))
+			key := bucket.Get([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix()) + i.I.Link))
 			if key == nil {
 				if leng(i.Title) > 20 {
 					rs := []rune(i.Title)
@@ -177,7 +177,7 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 				if err != nil {
 					return err
 				}
-				bucket.Put([]byte(fmt.Sprintf("%d", i.I.Date.Unix())+i.I.Link), buf)
+				bucket.Put([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix())+i.I.Link), buf)
 			}
 		}
 		return nil
@@ -253,10 +253,10 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, coldStart *bool) {
 			var result string
 			var style tcell.Style
 			if read == ZERO {
-				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), 20, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date.Local()), 20, i.Title, i.I.Title)
 				style = tcell.StyleDefault.Bold(true)
 			} else {
-				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date), 20, i.Title, i.I.Title)
+				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date.Local()), 20, i.Title, i.I.Title)
 				style = tcell.StyleDefault
 			}
 			for utf8.RuneCountInString(result) < w {
