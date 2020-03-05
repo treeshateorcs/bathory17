@@ -345,14 +345,14 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
 		bucket := tx.Bucket([]byte("unread"))
 		c := bucket.Cursor()
 		y := 0
+		var result string
+		var style tcell.Style
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
 			*maxItems++
 			read := v[READ_OFFSET]
 			var i Item
 			err := json.Unmarshal(v, &i)
 			fatal(328, err)
-			var result string
-			var style tcell.Style
 			if read == ZERO {
 				result = fmt.Sprintf("%6s│%[2]*s│%s", date(i.I.Date.Local()), 20, i.Title, i.I.Title)
 				style = tcell.StyleDefault.Bold(true)
@@ -373,6 +373,7 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
 		if *item > *maxItems-1 {
 			*item = *maxItems - 1
 			scroll(db, s, item, maxItems)
+			print(s, 0, y-1, style.Reverse(true), result)
 		}
 		return nil
 	})
