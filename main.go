@@ -113,12 +113,13 @@ mainloop:
 						currentItem--
 					}
 				case 'r':
-					go populateDB(s, db)
+					populateDB(s, db)
+					s.Clear()
 				}
 			}
 		}
 		scroll(db, s, &currentItem, &maxItems)
-		s.Show()
+		s.Sync()
 	}
 }
 
@@ -324,7 +325,7 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
 			read := v[READ_OFFSET]
 			var i Item
 			err := json.Unmarshal(v, &i)
-			fatal(242, err)
+			fatal(328, err)
 			var result string
 			var style tcell.Style
 			if read == ZERO {
@@ -343,6 +344,10 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
 				print(s, 0, y, style, result)
 			}
 			y++
+		}
+		if *item > *maxItems-1 {
+			*item = *maxItems - 1
+			scroll(db, s, item, maxItems)
 		}
 		return nil
 	})
