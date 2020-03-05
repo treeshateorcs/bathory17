@@ -34,7 +34,6 @@ type Item struct {
 
 func main() {
 	currentItem := 0
-	coldStart := true
 	dir, err := os.UserConfigDir()
 	fatal(39, err)
 	db, err := bolt.Open(filepath.FromSlash(dir+filepath.FromSlash("/lydia/db")), 0600, nil)
@@ -44,7 +43,7 @@ func main() {
 	fatal(45, err)
 	firstStart := false
 	err = db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("rss"))
+		b := tx.Bucket([]byte("unread"))
 		if b == nil {
 			firstStart = true
 		}
@@ -52,17 +51,18 @@ func main() {
 	})
 	if firstStart {
 		populateDB(s, db)
-		scroll(db, s, &currentItem, &coldStart)
-		s.Sync()
+		scroll(db, s, &currentItem)
+		go s.Sync()
+	} else {
+		go func() {
+			for {
+				populateDB(s, db)
+				scroll(db, s, &currentItem)
+				go s.Sync()
+				time.Sleep(TIMER * time.Minute)
+			}
+		}()
 	}
-	go func() {
-		for {
-			populateDB(s, db)
-			scroll(db, s, &currentItem, &coldStart)
-			s.Sync()
-			time.Sleep(TIMER * time.Minute)
-		}
-	}()
 	err = s.Init()
 	fatal(68, err)
 	defer s.Fini()
@@ -88,7 +88,7 @@ mainloop:
 				case 'o':
 					openURL(db, currentItem)
 					currentItem++
-					scroll(db, s, &currentItem, &coldStart)
+					scroll(db, s, &currentItem)
 				case 'q':
 					break mainloop
 				case 'j':
@@ -102,14 +102,13 @@ mainloop:
 					}
 				case 'r':
 					go populateDB(s, db)
-					scroll(db, s, &currentItem, &coldStart)
-					s.Sync()
+					scroll(db, s, &currentItem)
+					go s.Sync()
 				}
-				coldStart = false
 			}
 		}
-		scroll(db, s, &currentItem, &coldStart)
-		s.Sync()
+		scroll(db, s, &currentItem)
+		go s.Sync()
 	}
 }
 
@@ -150,7 +149,10 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 		print(s, w-12, h-1, style, fmt.Sprintf("loading...%02d", i))
 		go s.Sync()
 		f, err := rss.Fetch(scanner.Text())
-		fatal(172, err)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s could not be fetched", scanner.Text())
+			continue
+		}
 		for _, i := range f.Items {
 			var item Item
 			item = Item{
@@ -164,22 +166,31 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 	}
 	fatal(186, scanner.Err())
 	err = db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("rss"))
+		unreadBucket, err := tx.CreateBucketIfNotExists([]byte("unread"))
+		if err != nil {
+			return err
+		}
+		readBucket, err := tx.CreateBucketIfNotExists([]byte("read"))
 		if err != nil {
 			return err
 		}
 		for _, i := range items {
-			key := bucket.Get([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix()) + i.I.Link))
-			if key == nil {
-				if leng(i.Title) > 20 {
-					rs := []rune(i.Title)
-					i.Title = string(rs[:20])
-				}
-				buf, err := json.Marshal(i)
-				if err != nil {
-					return err
-				}
-				bucket.Put([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix())+i.I.Link), buf)
+			if leng(i.Title) > 20 {
+				rs := []rune(i.Title)
+				i.Title = string(rs[:20])
+			}
+			buf, err := json.Marshal(i)
+			if err != nil {
+				return err
+			}
+			if key := readBucket.Get([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix()) + i.I.Link)); key != nil {
+				continue
+			}
+			if key := unreadBucket.Get([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix()) + i.I.Link)); key == nil {
+				unreadBucket.Put([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix())+i.I.Link), buf)
+			} else if key[READ_OFFSET] != ZERO {
+				unreadBucket.Delete([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix()) + i.I.Link))
+				readBucket.Put([]byte(fmt.Sprintf("%d", i.I.Date.Local().Unix())+i.I.Link), buf)
 			}
 		}
 		return nil
@@ -201,7 +212,7 @@ func openURL(db *bolt.DB, index int) {
 	}
 	var url string
 	err := db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("rss"))
+		b := tx.Bucket([]byte("unread"))
 		if b == nil {
 			fatal(222, errors.New("no bucket"))
 		}
@@ -234,21 +245,14 @@ func openURL(db *bolt.DB, index int) {
 	fatal(221, err)
 }
 
-func scroll(db *bolt.DB, s tcell.Screen, item *int, coldStart *bool) {
+func scroll(db *bolt.DB, s tcell.Screen, item *int) {
 	w, _ := s.Size()
 	err := db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("rss"))
+		bucket := tx.Bucket([]byte("unread"))
 		c := bucket.Cursor()
 		y := 0
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
 			read := v[READ_OFFSET]
-			if *coldStart {
-				if read != ZERO {
-					*item++
-				} else {
-					*coldStart = false
-				}
-			}
 			var i Item
 			err := json.Unmarshal(v, &i)
 			fatal(242, err)
