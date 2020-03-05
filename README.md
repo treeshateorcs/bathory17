@@ -1,3 +1,5 @@
+![Screenshot](https://i.imgur.com/h9onqGL.png)
+
 # lydia
 
 lydia is a dead simple, yet full-featured terminal rss reader
