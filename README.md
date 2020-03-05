@@ -1,4 +1,4 @@
-![Screenshot](https://i.imgur.com/h9onqGL.png)
+![Screenshot](https://i.imgur.com/iTe1Rpw.png)
 
 # lydia
 
