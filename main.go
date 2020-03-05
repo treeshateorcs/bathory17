@@ -101,7 +101,7 @@ mainloop:
 						currentItem--
 					}
 				case 'r':
-					populateDB(s, db)
+					go populateDB(s, db)
 					scroll(db, s, &currentItem, &coldStart)
 					s.Sync()
 				}
@@ -130,10 +130,6 @@ func date(d time.Time) string {
 }
 
 func populateDB(s tcell.Screen, db *bolt.DB) {
-	w, h := s.Size()
-	style := tcell.StyleDefault.Bold(true).Reverse(true)
-	print(s, w-10, h-1, style, "loading...")
-	go s.Sync()
 	dir, err := os.UserConfigDir()
 	fatal(158, err)
 	file, err := os.Open(filepath.FromSlash(dir + filepath.FromSlash("/lydia/urls")))
@@ -143,11 +139,16 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	var items []Item = make([]Item, 0, 256)
+	i := 0
 	for scanner.Scan() {
 		text := scanner.Text()
 		if text[0] == '#' {
 			continue
 		}
+		w, h := s.Size()
+		style := tcell.StyleDefault.Bold(true).Reverse(true)
+		print(s, w-12, h-1, style, fmt.Sprintf("loading...%02d", i))
+		go s.Sync()
 		f, err := rss.Fetch(scanner.Text())
 		fatal(172, err)
 		for _, i := range f.Items {
@@ -159,6 +160,7 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 			}
 			items = append(items, item)
 		}
+		i++
 	}
 	fatal(186, scanner.Err())
 	err = db.Update(func(tx *bolt.Tx) error {
