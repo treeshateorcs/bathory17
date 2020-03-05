@@ -36,3 +36,5 @@ number of feeds is limited by it
 ## to do
 
 only show unread articles
+
+scroll past the bottom of the screen
