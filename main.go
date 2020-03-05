@@ -64,7 +64,6 @@ func main() {
 				time.Sleep(TIMER * time.Minute)
 				firstRun = false
 			}
-
 			populateDB(s, db, true)
 			scroll(db, s, &currentItem, &maxItems)
 			s.Show()

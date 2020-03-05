@@ -44,3 +44,8 @@ change the `TIMER` variable to set how often to auto refresh feeds
 ~~scroll past the bottom of the screen~~ WONTFIX
 
 ~~there may be issues when too few articles are on the screen, i'm working on it~~ DONE
+
+
+## contributing
+
+send bugreports to https://lists.sr.ht/~tho/lydia
