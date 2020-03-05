@@ -54,19 +54,23 @@ func main() {
 	fatal(68, err)
 	defer s.Fini()
 	if firstRun {
-		populateDB(s, db)
+		populateDB(s, db, true)
 		scroll(db, s, &currentItem, &maxItems)
 		s.Show()
-	} else {
-		go func() {
-			for {
-				populateDB(s, db)
-				scroll(db, s, &currentItem, &maxItems)
-				s.Show()
-				time.Sleep(TIMER * time.Minute)
-			}
-		}()
 	}
+	go func() {
+		for {
+			if firstRun {
+				time.Sleep(TIMER * time.Minute)
+				firstRun = false
+			}
+
+			populateDB(s, db, true)
+			scroll(db, s, &currentItem, &maxItems)
+			s.Show()
+			time.Sleep(TIMER * time.Minute)
+		}
+	}()
 mainloop:
 	for {
 		_, h := s.Size()
@@ -113,7 +117,10 @@ mainloop:
 						currentItem--
 					}
 				case 'r':
-					populateDB(s, db)
+					populateDB(s, db, false)
+					s.Clear()
+				case 'R':
+					populateDB(s, db, true)
 					s.Clear()
 				}
 			}
@@ -196,7 +203,7 @@ func date(d time.Time) string {
 
 }
 
-func populateDB(s tcell.Screen, db *bolt.DB) {
+func populateDB(s tcell.Screen, db *bolt.DB, refresh bool) {
 	dir, err := os.UserConfigDir()
 	fatal(158, err)
 	file, err := os.Open(filepath.FromSlash(dir + filepath.FromSlash("/lydia/urls")))
@@ -207,30 +214,48 @@ func populateDB(s tcell.Screen, db *bolt.DB) {
 	scanner := bufio.NewScanner(file)
 	var items []Item = make([]Item, 0, 256)
 	i := 0
-	for scanner.Scan() {
-		text := scanner.Text()
-		if text[0] == '#' {
-			continue
-		}
-		w, h := s.Size()
-		style := tcell.StyleDefault.Bold(true).Reverse(true)
-		print(s, w-12, h-1, style, fmt.Sprintf("loading...%02d", i))
-		s.Show()
-		f, err := rss.Fetch(scanner.Text())
-		if err != nil {
-			print(s, 0, h-1, style, fmt.Sprintf("%s could not be fetched", scanner.Text()))
-			continue
-		}
-		for _, i := range f.Items {
-			var item Item
-			item = Item{
-				Read:  0,
-				Title: f.Title,
-				I:     i,
+	if refresh {
+		for scanner.Scan() {
+			text := scanner.Text()
+			if text[0] == '#' {
+				continue
 			}
-			items = append(items, item)
+			w, h := s.Size()
+			style := tcell.StyleDefault.Bold(true).Reverse(true)
+			print(s, w-12, h-1, style, fmt.Sprintf("loading...%02d", i))
+			s.Show()
+			f, err := rss.Fetch(scanner.Text())
+			if err != nil {
+				print(s, 0, h-1, style, fmt.Sprintf("%s could not be fetched", scanner.Text()))
+				continue
+			}
+			for _, i := range f.Items {
+				var item Item
+				item = Item{
+					Read:  0,
+					Title: f.Title,
+					I:     i,
+				}
+				items = append(items, item)
+			}
+			i++
 		}
-		i++
+	} else {
+		err := db.View(func(tx *bolt.Tx) error {
+			buckets := []string{"unread", "read"}
+			for _, bucket := range buckets {
+				b := tx.Bucket([]byte(bucket))
+				c := b.Cursor()
+				for k, v := c.Last(); k != nil; k, v = c.Prev() {
+					var i Item
+					err := json.Unmarshal(v, &i)
+					fatal(328, err)
+					items = append(items, i)
+				}
+			}
+			return nil
+		})
+		fatal(249, err)
 	}
 	fatal(186, scanner.Err())
 	err = db.Update(func(tx *bolt.Tx) error {

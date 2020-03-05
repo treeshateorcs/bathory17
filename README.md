@@ -23,7 +23,9 @@ A - mark everything as read
 
 o - open url in your default browser
 
-r - refresh feeds and remove read articles from the screen
+R - refresh feeds and remove read articles from the screen
+
+r - remover read articles, don't refresh
 
 q, esc - quit
 
