@@ -91,7 +91,6 @@ mainloop:
 						if currentItem != h-1 {
 							currentItem++
 						}
-						scroll(db, s, &currentItem)
 					}
 				case 'o':
 					if currentItem < h {
@@ -99,7 +98,6 @@ mainloop:
 						if currentItem != h-1 {
 							currentItem++
 						}
-						scroll(db, s, &currentItem)
 					}
 				case 'q':
 					break mainloop
@@ -113,8 +111,6 @@ mainloop:
 					}
 				case 'r':
 					go populateDB(s, db)
-					scroll(db, s, &currentItem)
-					s.Show()
 				}
 			}
 		}
