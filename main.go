@@ -51,13 +51,13 @@ func main() {
 		return err
 	})
 	if firstStart {
-		populateDB(db)
+		populateDB(s, db)
 		scroll(db, s, &currentItem, &coldStart)
 		s.Sync()
 	}
 	go func() {
 		for {
-			populateDB(db)
+			populateDB(s, db)
 			scroll(db, s, &currentItem, &coldStart)
 			s.Sync()
 			time.Sleep(TIMER * time.Minute)
@@ -101,7 +101,7 @@ mainloop:
 						currentItem--
 					}
 				case 'r':
-					populateDB(db)
+					populateDB(s, db)
 					scroll(db, s, &currentItem, &coldStart)
 					s.Sync()
 				}
@@ -129,7 +129,11 @@ func date(d time.Time) string {
 
 }
 
-func populateDB(db *bolt.DB) {
+func populateDB(s tcell.Screen, db *bolt.DB) {
+	w, h := s.Size()
+	style := tcell.StyleDefault.Bold(true).Reverse(true)
+	print(s, w-10, h-1, style, "loading...")
+	go s.Sync()
 	dir, err := os.UserConfigDir()
 	fatal(158, err)
 	file, err := os.Open(filepath.FromSlash(dir + filepath.FromSlash("/lydia/urls")))
