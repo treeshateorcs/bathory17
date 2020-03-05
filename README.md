@@ -48,4 +48,4 @@ change the `TIMER` variable to set how often to auto refresh feeds
 
 ## contributing
 
-send bugreports to https://lists.sr.ht/~tho/lydia
+send bugreports [to this email](mailto:~tho/lydia@lists.sr.ht)

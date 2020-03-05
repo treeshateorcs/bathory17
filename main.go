@@ -337,7 +337,7 @@ func openURL(db *bolt.DB, index int) {
 	fatal(221, err)
 }
 
-func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
+func scroll(db *bolt.DB, s tcell.Screen, currentItem *int, maxItems *int) {
 	*maxItems = 0
 	w, _ := s.Size()
 	err := db.View(func(tx *bolt.Tx) error {
@@ -347,7 +347,6 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
 		var result string
 		var style tcell.Style
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
-			*maxItems++
 			read := v[READ_OFFSET]
 			var i Item
 			err := json.Unmarshal(v, &i)
@@ -362,16 +361,17 @@ func scroll(db *bolt.DB, s tcell.Screen, item *int, maxItems *int) {
 			for utf8.RuneCountInString(result) < w {
 				result += " "
 			}
-			if y == *item {
+			if y == *currentItem {
 				print(s, 0, y, style.Reverse(true), result)
 			} else {
 				print(s, 0, y, style, result)
 			}
 			y++
+			*maxItems++
 		}
-		if *item > *maxItems-1 {
-			*item = *maxItems - 1
-			scroll(db, s, item, maxItems)
+		if *currentItem > *maxItems-1 {
+			*currentItem = *maxItems - 1
+			scroll(db, s, currentItem, maxItems)
 			print(s, 0, y-1, style.Reverse(true), result)
 		}
 		return nil
