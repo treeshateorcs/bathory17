@@ -20,7 +20,7 @@ j, k; down, up - down, up
 
 d - mark as read, don't open
 
-a - mark as read everything
+A - mark as read everything
 
 o - open url in browser
 
