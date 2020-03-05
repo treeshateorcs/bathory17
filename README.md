@@ -16,6 +16,8 @@ one per line
 ## how to use
 j, k; down, up - down, up
 
+d - mark as read, don't open
+
 o - open url in browser
 
 r - refresh feeds and remove read articles from the screen
@@ -37,4 +39,4 @@ number of feeds is limited by it
 
 ~~only show unread articles~~
 
-scroll past the bottom of the screen
+~~scroll past the bottom of the screen~~ WONTFIX

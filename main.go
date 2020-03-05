@@ -85,10 +85,20 @@ mainloop:
 				}
 			case tcell.KeyRune:
 				switch ev.Rune() {
+				case 'd':
+					if currentItem < h {
+						markRead(db, currentItem)
+						if currentItem != h-1 {
+							currentItem++
+						}
+						scroll(db, s, &currentItem)
+					}
 				case 'o':
-					if currentItem < h-1 {
+					if currentItem < h {
 						openURL(db, currentItem)
-						currentItem++
+						if currentItem != h-1 {
+							currentItem++
+						}
 						scroll(db, s, &currentItem)
 					}
 				case 'q':
@@ -111,6 +121,38 @@ mainloop:
 		scroll(db, s, &currentItem)
 		s.Show()
 	}
+}
+
+func markRead(db *bolt.DB, index int) {
+	err := db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("unread"))
+		if b == nil {
+			fatal(222, errors.New("no bucket"))
+		}
+		c := b.Cursor()
+		for k, v := c.Last(); k != nil; k, v = c.Prev() {
+			index--
+			if k == nil {
+				fatal(230, errors.New("no key for current item"))
+			}
+			if index == -1 {
+				var item Item
+				err := json.Unmarshal(v, &item)
+				if err != nil {
+					return err
+				}
+				item.Read = 1
+				buf, err := json.Marshal(item)
+				if err != nil {
+					return err
+				}
+				b.Put(k, buf)
+				break
+			}
+		}
+		return nil
+	})
+	fatal(145, err)
 }
 
 func leng(s string) int {
