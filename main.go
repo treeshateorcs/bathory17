@@ -216,6 +216,9 @@ func populateDB(s tcell.Screen, db *bolt.DB, refresh bool) {
 	if refresh {
 		for scanner.Scan() {
 			text := scanner.Text()
+			if len(text) == 0 {
+				continue
+			}
 			if text[0] == '#' {
 				continue
 			}
