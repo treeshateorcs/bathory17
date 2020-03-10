@@ -80,7 +80,7 @@ mainloop:
 			case tcell.KeyEscape:
 				break mainloop
 			case tcell.KeyDown:
-				if currentItem < h-1 && currentItem < maxItems-1 {
+				if currentItem < h-1 && currentItem < maxItems {
 					currentItem++
 				}
 			case tcell.KeyUp:
@@ -101,14 +101,14 @@ mainloop:
 				case 'o':
 					if currentItem < h && currentItem < maxItems {
 						openURL(db, currentItem)
-						if currentItem != h-1 && currentItem != maxItems-1 {
+						if currentItem != h-1 && currentItem != maxItems {
 							currentItem++
 						}
 					}
 				case 'q':
 					break mainloop
 				case 'j':
-					if currentItem < h-1 && currentItem < maxItems-1 {
+					if currentItem < h-1 && currentItem < maxItems {
 						currentItem++
 					}
 				case 'k':
@@ -117,13 +117,12 @@ mainloop:
 					}
 				case 'r':
 					populateDB(s, db, false)
-					s.Clear()
 				case 'R':
 					populateDB(s, db, true)
-					s.Clear()
 				}
 			}
 		}
+		s.Clear()
 		scroll(db, s, &currentItem, &maxItems)
 		s.Sync()
 	}
