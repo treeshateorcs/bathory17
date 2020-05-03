@@ -6,7 +6,7 @@ lydia is a dead simple, yet full-featured terminal rss reader
 
 ## installation
 
-the only dependency is go 1.13, tested on arch linux, go 1.14
+the only dependency is go >=1.13, tested on arch linux, go 1.14
 
     $ go get git.sr.ht/~tho/lydia
 
