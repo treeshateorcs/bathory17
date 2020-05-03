@@ -301,6 +301,7 @@ func openURL(db *bolt.DB, index int) {
 		args = []string{"/c", "start"}
 	case "darwin":
 		cmd = "open"
+		args = []string{"-gj"}
 	default:
 		cmd = "xdg-open"
 	}
