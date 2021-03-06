@@ -1,17 +1,17 @@
 ![Screenshot](https://i.imgur.com/iTe1Rpw.png)
 
-# lydia
+# bathory17
 
-lydia is a dead simple, yet full-featured terminal rss reader
+bathory17 is a dead simple, yet full-featured terminal rss reader
 
 ## installation
 
 the only dependency is go >=1.13, tested on arch linux, go 1.14
 
-    $ go get git.sr.ht/~tho/lydia
+    $ go get github.com/treeshateorcs/bathory17
 
 before the first run create a directory in your config dir ($HOME/.config/ on
-linux), name it `lydia`, add a few feed urls in the file called `urls`,
+linux), name it `bathory17`, add a few feed urls in the file called `urls`,
 one per line
 
 ## how to use
@@ -45,7 +45,3 @@ change the `TIMER` variable to set how often to auto refresh feeds
 
 ~~there may be issues when too few articles are on the screen, i'm working on it~~ DONE
 
-
-## contributing
-
-send bugreports [to this email](mailto:~tho/lydia@lists.sr.ht)
